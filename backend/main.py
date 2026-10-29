@@ -12,10 +12,10 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, s
 from fastapi.responses import StreamingResponse, Response, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from pydantic import BaseModel
 
-from backend.database import AsyncSessionLocal, InspectionBatch, InspectionImage, init_db
+from backend.database import AsyncSessionLocal, InspectionBatch, InspectionImage, init_db, engine
 from backend.compressor import compress_image_pipeline
 from backend.classifier import classifier_service, CATEGORY_MAP, resolve_section
 from backend.xlsx_builder import generate_qc_inspection_workbook
@@ -33,6 +33,17 @@ app.add_middleware(
 # In-memory progress tracking for SSE
 batch_progress_events = {}
 
+async def vacuum_database():
+    """Reclaims physical disk space back to the OS volume using VACUUM FULL."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execution_options(isolation_level="AUTOCOMMIT")
+            await conn.execute(text("VACUUM FULL inspection_images;"))
+            await conn.execute(text("VACUUM FULL inspection_batches;"))
+        logger.info("Database VACUUM FULL completed: disk space reclaimed.")
+    except Exception as e:
+        logger.error(f"Error during VACUUM FULL: {e}")
+
 async def purge_expired_batches(max_age_hours: float = 1.0) -> int:
     """Permanently deletes batches older than max_age_hours to prevent database cost accumulation."""
     cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
@@ -48,9 +59,10 @@ async def purge_expired_batches(max_age_hours: float = 1.0) -> int:
                         del batch_progress_events[str(b.id)]
                     await session.delete(b)
                 await session.commit()
+                await vacuum_database()
             return count
     except Exception as e:
-        print(f"Error purging expired batches: {e}")
+        logger.error(f"Error purging expired batches: {e}")
         return 0
 
 async def auto_purge_loop():
@@ -62,12 +74,13 @@ async def auto_purge_loop():
         except asyncio.CancelledError:
             break
         except Exception as e:
-            print(f"Auto purge loop error: {e}")
+            logger.error(f"Auto purge loop error: {e}")
 
 @app.on_event("startup")
 async def on_startup():
     await init_db()
     await purge_expired_batches(1.0)
+    await vacuum_database()
     asyncio.create_task(auto_purge_loop())
 
 @app.get("/api/health")
@@ -458,7 +471,7 @@ async def export_batch_excel(batch_id: uuid.UUID):
         )
 
 @app.delete("/api/batch/{batch_id}")
-async def delete_batch(batch_id: uuid.UUID):
+async def delete_batch(batch_id: uuid.UUID, background_tasks: BackgroundTasks):
     """Permanently deletes an inspection batch and trashes all its images from the database."""
     async with AsyncSessionLocal() as session:
         batch = await session.get(InspectionBatch, batch_id)
@@ -470,7 +483,15 @@ async def delete_batch(batch_id: uuid.UUID):
     if str(batch_id) in batch_progress_events:
         del batch_progress_events[str(batch_id)]
 
-    return {"status": "deleted", "message": f"Batch {batch_id} and all associated images have been permanently trashed."}
+    background_tasks.add_task(vacuum_database)
+
+    return {"status": "deleted", "message": f"Batch {batch_id} and all associated images have been permanently trashed, and disk space is being reclaimed."}
+
+@app.post("/api/maintenance/vacuum")
+async def trigger_vacuum(background_tasks: BackgroundTasks):
+    """Manually triggers VACUUM FULL to reclaim cloud disk volume space."""
+    background_tasks.add_task(vacuum_database)
+    return {"status": "started", "message": "VACUUM FULL initiated to reclaim disk storage."}
 
 # Serve Frontend static directory if exists
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

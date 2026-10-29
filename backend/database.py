@@ -67,9 +67,20 @@ class InspectionImage(Base):
     )
 
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("Database tables initialized successfully.")
+    import asyncio
+    retries = 8
+    for attempt in range(retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("Database tables initialized successfully.")
+            return
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"Database connection attempt {attempt + 1}/{retries} failed ({e}). Retrying in 2 seconds...")
+                await asyncio.sleep(2)
+            else:
+                print(f"Warning: Could not connect to database on startup: {e}")
 
 if __name__ == "__main__":
     import asyncio

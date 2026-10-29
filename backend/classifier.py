@@ -113,7 +113,10 @@ class TrainedSequentialClassifier:
             except Exception as e:
                 logger.warning(f"Failed to load trained model: {e}")
 
-    def _get_next_key(self) -> str:
+    def _get_next_key(self) -> str | None:
+        if not GROQ_KEYS:
+            k = os.environ.get("GROQ_API_KEY", "").strip()
+            return k if k else None
         key = GROQ_KEYS[self.key_idx % len(GROQ_KEYS)]
         self.key_idx += 1
         return key
@@ -144,8 +147,8 @@ class TrainedSequentialClassifier:
         """
         Dual-Engine Classification:
         1. Predict prior category using the trained model (804 ground-truth samples).
-        2. Attempt Qwen-3.8 VLM with short circuit if rate-limited.
-        3. Fallback to trained model (96.7% accuracy) on rate-limit or timeout.
+        2. Attempt Qwen-3.8 VLM if API key is provided.
+        3. Fallback to trained model (96.7% accuracy) on rate-limit, timeout, or missing key.
         """
         img = Image.open(io.BytesIO(image_bytes))
         pred_cat_id, pred_cat_code, pred_prob = self.predict_ml_prior(img)
@@ -154,9 +157,11 @@ class TrainedSequentialClassifier:
         rot_deg = 270 if ("165935" in filename and img.width > img.height) else 0
         determined_size = "11" if ("165818" in filename or "165800" in filename) else ("12" if ("170021" in filename or "170000" in filename) else None)
 
+        api_key = self._get_next_key()
         now = time.time()
-        # Fast path if Groq is currently rate-limited
-        if now < self.groq_rate_limited_until:
+
+        # Fast offline ML classification when no Groq key is set or when rate-limited
+        if not api_key or now < self.groq_rate_limited_until:
             return {
                 "cat": pred_cat_code,
                 "article": self.batch_context["reference_code"],

@@ -3,8 +3,11 @@ import os
 import uuid
 import zipfile
 import asyncio
+import logging
 from typing import List
 from datetime import datetime, timedelta
+
+logger = logging.getLogger("backend")
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, status
 from fastapi.responses import StreamingResponse, Response, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware

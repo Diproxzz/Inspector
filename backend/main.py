@@ -34,13 +34,15 @@ app.add_middleware(
 batch_progress_events = {}
 
 async def vacuum_database():
-    """Reclaims physical disk space back to the OS volume using VACUUM FULL."""
+    """Reclaims physical disk space back to the OS volume using VACUUM FULL and CHECKPOINT."""
     try:
         async with engine.connect() as conn:
             await conn.execution_options(isolation_level="AUTOCOMMIT")
+            await conn.execute(text("CHECKPOINT;"))
             await conn.execute(text("VACUUM FULL inspection_images;"))
             await conn.execute(text("VACUUM FULL inspection_batches;"))
-        logger.info("Database VACUUM FULL completed: disk space reclaimed.")
+            await conn.execute(text("CHECKPOINT;"))
+        logger.info("Database VACUUM FULL & CHECKPOINT completed: disk space reclaimed.")
     except Exception as e:
         logger.error(f"Error during VACUUM FULL: {e}")
 
@@ -487,11 +489,35 @@ async def delete_batch(batch_id: uuid.UUID, background_tasks: BackgroundTasks):
 
     return {"status": "deleted", "message": f"Batch {batch_id} and all associated images have been permanently trashed, and disk space is being reclaimed."}
 
+@app.get("/api/maintenance/storage-stats")
+async def get_storage_stats():
+    """Returns exact breakdown of PostgreSQL disk usage: tables, toast, and WAL."""
+    try:
+        async with engine.connect() as conn:
+            q = """
+            SELECT 
+                pg_size_pretty(pg_database_size(current_database())) as db_size,
+                pg_size_pretty(pg_total_relation_size('inspection_images')) as images_size,
+                pg_size_pretty(pg_total_relation_size('inspection_batches')) as batches_size
+            """
+            res = await conn.execute(text(q))
+            row = dict(res.mappings().one())
+            
+            try:
+                wal_res = await conn.execute(text("SELECT pg_size_pretty(sum(size)::bigint) FROM pg_ls_waldir();"))
+                row["wal_size"] = wal_res.scalar()
+            except Exception:
+                row["wal_size"] = "Permission denied or unavailable"
+                
+            return {"status": "ok", "stats": row}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 @app.post("/api/maintenance/vacuum")
 async def trigger_vacuum(background_tasks: BackgroundTasks):
     """Manually triggers VACUUM FULL to reclaim cloud disk volume space."""
     background_tasks.add_task(vacuum_database)
-    return {"status": "started", "message": "VACUUM FULL initiated to reclaim disk storage."}
+    return {"status": "started", "message": "VACUUM FULL and CHECKPOINT initiated to reclaim disk storage."}
 
 # Serve Frontend static directory if exists
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

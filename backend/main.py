@@ -508,6 +508,12 @@ async def get_storage_stats():
                 row["wal_size"] = wal_res.scalar()
             except Exception:
                 row["wal_size"] = "Permission denied or unavailable"
+
+            try:
+                settings_res = await conn.execute(text("SELECT name, setting, unit FROM pg_settings WHERE name IN ('wal_keep_size', 'min_wal_size', 'max_wal_size', 'archive_mode');"))
+                row["wal_settings"] = {r["name"]: f"{r['setting']} {r['unit'] or ''}".strip() for r in settings_res.mappings().all()}
+            except Exception as e:
+                row["wal_settings"] = str(e)
                 
             return {"status": "ok", "stats": row}
     except Exception as e:

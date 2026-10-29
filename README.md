@@ -60,7 +60,94 @@ Automated Quality Control (QC) Image-to-Excel A4 Inspection Report Builder built
 3. To stop the server cleanly:
    - Click the **"Close Server"** button in the UI navigation bar, or run `stop_server.bat`.
 
-## Project Structure
+## Deployment
+
+### Option 1: Docker & Docker Compose (Recommended for Any VPS or Local Server)
+
+You can spin up both the FastAPI application and PostgreSQL database with a single command:
+
+```bash
+docker compose up -d --build
+```
+
+The application will be accessible at `http://<your-server-ip>:8000`.
+
+To view logs or stop:
+```bash
+docker compose logs -f
+docker compose down
+```
+
+---
+
+### Option 2: Deploy to Render (Cloud)
+
+1. Go to [Render Dashboard](https://dashboard.render.com).
+2. **Create PostgreSQL Database**:
+   - Click **New +** -> **PostgreSQL**.
+   - Note the **Internal Database URL**.
+3. **Create Web Service**:
+   - Click **New +** -> **Web Service** -> Connect your GitHub repo (`Diproxzz/Inspector`).
+   - **Environment**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+   - Under **Environment Variables**, add:
+     - `DATABASE_URL`: *(Paste the Internal Database URL from step 2)*
+4. Click **Deploy Web Service**.
+
+---
+
+### Option 3: Deploy to Railway
+
+1. Go to [Railway.app](https://railway.app).
+2. Click **New Project** -> **Deploy from GitHub repo** -> Select `Inspector`.
+3. Click **+ New** -> **Database** -> **PostgreSQL**.
+4. In your Web Service settings under **Variables**, set:
+   - `DATABASE_URL`: `${{Postgres.DATABASE_URL}}`
+5. Railway will automatically detect the `Dockerfile` or `requirements.txt` and deploy.
+
+---
+
+### Option 4: Linux VPS (Ubuntu / Debian with systemd & Nginx)
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Diproxzz/Inspector.git
+   cd Inspector
+   ```
+
+2. **Set up virtual environment & install requirements**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. **Configure systemd service (`/etc/systemd/system/inspector.service`)**:
+   ```ini
+   [Unit]
+   Description=Inspector QC FastAPI Service
+   After=network.target postgresql.service
+
+   [Service]
+   User=www-data
+   WorkingDirectory=/var/www/Inspector
+   Environment="PATH=/var/www/Inspector/venv/bin"
+   Environment="DATABASE_URL=postgresql+asyncpg://postgres:yourpassword@localhost:5432/inspector_qc"
+   ExecStart=/var/www/Inspector/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+4. **Enable & Start**:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable inspector
+   sudo systemctl start inspector
+   ```
+
+5. Reverse-proxy via Nginx on port 80/443.
 
 ```
 Inspector/

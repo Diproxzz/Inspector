@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automated QC Image-to-Excel A4 Inspection Report Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-file-excel text-xl text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-base text-white leading-tight">Antigravity QC Inspection Builder</h1>
+          <p class="text-xs text-slate-400">804 Ground-Truth Sample Model &bull; 220-PPI Visually Lossless &bull; Editable A4 XLSX</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <!-- New Batch Button -->
+        <button id="btn-new-batch" onclick="createNewBatch()" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-xs font-semibold border border-emerald-500/30 transition flex items-center space-x-1.5 shadow-sm" title="Create a new inspection batch">
+          <i class="fa-solid fa-plus"></i>
+          <span>New</span>
+        </button>
+
+        <!-- Batch selector -->
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-400 font-medium">Batch:</span>
+          <select id="batch-selector" onchange="switchBatch(this.value)" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-blue-500">
+            <option value="">Select Batch...</option>
+          </select>
+        </div>
+
+        <!-- Close Server Button -->
+        <button id="btn-close-server" onclick="shutdownServer()" class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold border border-rose-500/20 transition flex items-center space-x-1.5" title="Stop the QC Inspection backend server">
+          <i class="fa-solid fa-power-off"></i>
+          <span>Close Server</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Step Progression Bar -->
+  <nav class="bg-slate-900 border-b border-slate-800 px-6 py-2.5">
+    <div class="max-w-5xl mx-auto flex items-center justify-between text-xs">
+      <div id="step-nav-1" class="flex items-center text-blue-400 font-semibold space-x-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-800/60 transition" onclick="goToStep(1)" title="Click to view Step 1: Upload Images">
+        <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">1</span>
+        <span>Upload Images (Max 300)</span>
+      </div>
+      <div class="h-0.5 w-12 bg-slate-800"></div>
+      <div id="step-nav-2" class="flex items-center text-slate-400 space-x-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-800/60 transition" onclick="goToStep(2)" title="Click to view Step 2: Sequential Classification">
+        <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold">2</span>
+        <span>Sequential Classification</span>
+      </div>
+      <div class="h-0.5 w-12 bg-slate-800"></div>
+      <div id="step-nav-3" class="flex items-center text-slate-400 space-x-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-800/60 transition" onclick="goToStep(3)" title="Click to view Step 3: A4 Review Canvas">
+        <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold">3</span>
+        <span>A4 Review Canvas</span>
+      </div>
+      <div class="h-0.5 w-12 bg-slate-800"></div>
+      <div id="step-nav-4" class="flex items-center text-slate-400 space-x-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-800/60 transition" onclick="goToStep(4)" title="Click to download editable XLSX report">
+        <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold">4</span>
+        <span>Download XLSX</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- STEP 1: Upload & Compress Panel -->
+    <section id="panel-upload" class="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 backdrop-blur text-center">
+      <div class="max-w-xl mx-auto space-y-4">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-2xl">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white">Ingest Product Inspection Photos</h2>
+        <p class="text-sm text-slate-400">
+          Upload up to <span class="text-blue-400 font-semibold">300 images</span> or a <span class="text-indigo-400 font-semibold">.zip archive</span>. Images are compressed with visually lossless 220-PPI print fidelity and classified using the ground-truth trained model.
+        </p>
+
+        <!-- Dropzone -->
+        <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-8 cursor-pointer transition bg-slate-950/40" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" multiple accept="image/*,.zip" class="hidden" onchange="handleFileSelect(event)">
+          <i class="fa-regular fa-images text-3xl text-slate-500 mb-2"></i>
+          <p class="text-sm font-medium text-slate-300">Click to browse or drop inspection files here</p>
+          <p class="text-xs text-slate-500 mt-1">Strict limit: Up to 300 images per batch</p>
+        </div>
+
+        <div id="upload-status" class="hidden text-sm py-2"></div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Live Sequential Classification Progress Panel -->
+    <section id="panel-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-microchip text-blue-400"></i>
+            <span>Sequential Classification (Concurrency = 1)</span>
+          </h3>
+          <p class="text-xs text-slate-400">804 Ground-Truth Sample Model &bull; Qwen-3.8 VLM &bull; Article/Size Extraction</p>
+        </div>
+        <div class="text-right">
+          <span id="progress-counter" class="text-base font-mono font-bold text-blue-400">0 / 0</span>
+          <p class="text-xs text-slate-400" id="progress-percent">0%</p>
+        </div>
+      </div>
+
+      <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-6">
+        <div id="progress-bar" class="bg-gradient-to-r from-blue-600 to-indigo-500 h-full w-0 transition-all duration-300"></div>
+      </div>
+
+      <!-- Active image inspection card -->
+      <div id="active-card" class="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex items-center space-x-6">
+        <div class="w-24 h-24 bg-slate-800 rounded-lg overflow-hidden flex items-center justify-center border border-slate-700 flex-shrink-0">
+          <img id="active-img" src="" alt="Active Image" class="w-full h-full object-cover hidden">
+          <i id="active-img-placeholder" class="fa-solid fa-spinner fa-spin text-slate-500 text-xl"></i>
+        </div>
+        <div class="flex-1 space-y-1.5">
+          <div class="flex items-center space-x-3">
+            <span id="active-cat-badge" class="px-2.5 py-0.5 rounded text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              Initializing...
+            </span>
+            <span id="active-tier-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              ML Model
+            </span>
+            <span id="active-conf-badge" class="text-xs text-slate-400">Conf: --</span>
+          </div>
+          <p id="active-filename" class="text-sm font-mono text-slate-200">Waiting for first image...</p>
+          <p id="active-caption" class="text-xs text-slate-400 italic">Caption will appear here</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 & 4: Interactive A4 Layout Review & Edit Canvas -->
+    <section id="panel-canvas" class="hidden space-y-6">
+      <!-- Toolbar -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 sticky top-16 z-40 backdrop-blur">
+        <div class="flex items-center space-x-3">
+          <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">A4 Review Canvas:</span>
+          <span id="batch-summary-badge" class="px-3 py-1 rounded bg-slate-800 text-xs font-medium text-slate-300">
+            0 Images Classified
+          </span>
+          <span class="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20 flex items-center space-x-1.5">
+            <i class="fa-solid fa-check"></i>
+            <span>Framed Borders &bull; Zero Overlap &bull; Matched Dimensions</span>
+          </span>
+        </div>
+        <div class="flex items-center space-x-3">
+          <button onclick="reclassifyBatch()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition">
+            <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Re-classify Batch
+          </button>
+          <button onclick="exportExcel()" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition flex items-center space-x-2">
+            <i class="fa-solid fa-file-excel text-base"></i>
+            <span>Download Editable A4 XLSX</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sections Grid -->
+      <div id="sections-container" class="space-y-6">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JavaScript logic -->
+  <script>
+    let currentBatchId = null;
+    let pollInterval = null;
+    let batchData = null;
+
+    const SECTION_NAMES = {
+      1: "1. Shipping Marks View",
+      2: "2. Export Carton View",
+      3: "3. Open carton View",
+      4: "4. Bundle View",
+      5: "5. Product View (# XXXX - XXX - X/X)",
+      6: "6. Reference Sample View (# XXXX - XXX )",
+      7: "7. Gloves Marking View",
+      8: "8. Barcode",
+      9: "9. Leaflet (Front & Back View)",
+      10: "10. Inside Label Front and Back View",
+      11: "11. Rest of the Images"
+    };
+
+    function goToStep(step) {
+      if (step === 1) {
+        showPanel("upload");
+      } else if (step === 2) {
+        if (!currentBatchId) {
+          alert("Please upload images or select a batch first.");
+          showPanel("upload");
+          return;
+        }
+        showPanel("progress");
+        if (pollInterval) clearInterval(pollInterval);
+        pollProgress();
+        pollInterval = setInterval(pollProgress, 500);
+      } else if (step === 3) {
+        if (!currentBatchId) {
+          alert("Please upload images or select a batch first.");
+          showPanel("upload");
+          return;
+        }
+        loadCanvas();
+      } else if (step === 4) {
+        if (!currentBatchId) {
+          alert("Please upload images or select a batch first.");
+          return;
+        }
+        exportExcel();
+      }
+    }
+
+    function createNewBatch() {
+      currentBatchId = null;
+      localStorage.removeItem("qc_current_batch_id");
+      const selector = document.getElementById("batch-selector");
+      if (selector) selector.value = "";
+      const fileInput = document.getElementById("file-input");
+      if (fileInput) fileInput.value = "";
+      const statusEl = document.getElementById("upload-status");
+      if (statusEl) {
+        statusEl.className = "text-sm py-2 text-emerald-400 block";
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check mr-2"></i> Ready for new batch. Select or drop up to 300 inspection images.`;
+      }
+      goToStep(1);
+    }
+
+    async function shutdownServer() {
+      if (!confirm("Are you sure you want to stop/close the QC Inspection backend server?")) {
+        return;
+      }
+      try {
+        await fetch("/api/shutdown", { method: "POST" });
+      } catch (e) {
+        // Expected if server terminates immediately
+      }
+      document.body.innerHTML = `
+        <div class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+          <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-4 shadow-2xl">
+            <div class="w-16 h-16 mx-auto rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-2xl">
+              <i class="fa-solid fa-power-off"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white">Server Stopped</h2>
+            <p class="text-sm text-slate-400">The QC Inspection backend server has been closed cleanly. You can safely close this browser window.</p>
+            <p class="text-xs text-slate-500">To start the server again, run <code class="text-blue-400 font-mono">start_server.bat</code> or run <code class="text-blue-400 font-mono">python -m uvicorn backend.main:app</code> in your terminal.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function showPanel(name) {
+      document.getElementById("panel-upload").classList.toggle("hidden", name !== "upload");
+      document.getElementById("panel-progress").classList.toggle("hidden", name !== "progress");
+      document.getElementById("panel-canvas").classList.toggle("hidden", name !== "canvas");
+      if (name === "upload") updateStepNav(1);
+      if (name === "progress") updateStepNav(2);
+      if (name === "canvas") updateStepNav(3);
+    }
+
+    function updateStepNav(step) {
+      for (let s = 1; s <= 4; s++) {
+        const el = document.getElementById(`step-nav-${s}`);
+        if (!el) continue;
+        const badge = el.children[0];
+        if (s === step) {
+          el.className = "flex items-center text-blue-400 font-bold space-x-2 cursor-pointer p-1.5 rounded-lg bg-blue-950/40 border border-blue-500/20 transition shadow-sm";
+          badge.className = "w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-md shadow-blue-500/30";
+        } else if (s < step) {
+          el.className = "flex items-center text-slate-300 font-medium space-x-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-800/60 transition";
+          badge.className = "w-6 h-6 rounded-full bg-blue-900/60 text-blue-300 flex items-center justify-center text-xs font-semibold";
+        } else {
+          el.className = "flex items-center text-slate-500 space-x-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-800/60 transition";
+          badge.className = "w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs";
+        }
+      }
+    }
+
+    async function loadRecentBatches() {
+      try {
+        const resp = await fetch("/api/batches");
+        const data = await resp.json();
+        const selector = document.getElementById("batch-selector");
+        selector.innerHTML = '<option value="">Select Batch...</option>';
+        
+        data.batches.forEach(b => {
+          const opt = document.createElement("option");
+          opt.value = b.id;
+          opt.textContent = `${b.batch_name} (${b.total_images} imgs)`;
+          if (b.id === currentBatchId) opt.selected = true;
+          selector.appendChild(opt);
+        });
+
+        // Always open on a fresh new batch page; do not automatically load previous batches
+      } catch (e) {
+        console.error("Failed to load batches:", e);
+      }
+    }
+
+    function switchBatch(batchId) {
+      if (!batchId) return;
+      currentBatchId = batchId;
+      localStorage.setItem("qc_current_batch_id", currentBatchId);
+      loadCanvas();
+    }
+
+    async function handleFileSelect(evt) {
+      const files = evt.target.files;
+      if (!files || files.length === 0) return;
+
+      if (files.length > 300) {
+        alert(`Guardrail Triggered: You selected ${files.length} files. Maximum allowed per inspection batch is 300 images.`);
+        return;
+      }
+
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append("files", files[i]);
+      }
+
+      const statusEl = document.getElementById("upload-status");
+      statusEl.className = "text-sm py-2 text-blue-400 block";
+      statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Ingesting and compressing ${files.length} images (220-PPI lossless)...`;
+
+      try {
+        const resp = await fetch("/api/upload", { method: "POST", body: formData });
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || "Upload failed");
+        }
+        const data = await resp.json();
+        currentBatchId = data.batch_id;
+        localStorage.setItem("qc_current_batch_id", currentBatchId);
+        statusEl.innerHTML = `<span class="text-emerald-400 font-medium"><i class="fa-solid fa-circle-check mr-2"></i> ${data.message}</span>`;
+        await loadRecentBatches();
+        startClassification();
+      } catch (e) {
+        statusEl.className = "text-sm py-2 text-rose-400 block";
+        statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i> ${e.message}`;
+      }
+    }
+
+    async function startClassification() {
+      if (!currentBatchId) return;
+
+      showPanel("progress");
+      document.getElementById("progress-counter").textContent = "Starting...";
+      document.getElementById("progress-percent").textContent = "0%";
+      document.getElementById("progress-bar").style.width = "0%";
+      document.getElementById("active-cat-badge").textContent = "Initializing...";
+      document.getElementById("active-filename").textContent = "Preparing images for classification...";
+      document.getElementById("active-caption").textContent = "Processing...";
+
+      try {
+        await fetch(`/api/batch/${currentBatchId}/classify`, { method: "POST" });
+      } catch (err) {
+        console.error("Classification start error:", err);
+      }
+
+      if (pollInterval) clearInterval(pollInterval);
+      pollProgress();
+      pollInterval = setInterval(pollProgress, 500);
+    }
+
+    async function pollProgress() {
+      if (!currentBatchId) return;
+
+      try {
+        const resp = await fetch(`/api/batch/${currentBatchId}/events`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        // If batch is already READY, complete progress bar and jump to review canvas
+        if (data.status === "READY") {
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+          const total = data.total || data.processed || 0;
+          document.getElementById("progress-counter").textContent = `${total} / ${total}`;
+          document.getElementById("progress-percent").textContent = `100%`;
+          document.getElementById("progress-bar").style.width = `100%`;
+          setTimeout(loadCanvas, 400);
+          return;
+        }
+
+        const events = data.events || [];
+        if (events.length > 0) {
+          const latest = events[events.length - 1];
+          const proc = latest.processed;
+          const total = latest.total;
+          const pct = total > 0 ? Math.round((proc / total) * 100) : 0;
+
+          document.getElementById("progress-counter").textContent = `${proc} / ${total}`;
+          document.getElementById("progress-percent").textContent = `${pct}%`;
+          document.getElementById("progress-bar").style.width = `${pct}%`;
+
+          const img = latest.current_image;
+          if (img) {
+            document.getElementById("active-img").src = `/api/image/${img.id}/thumbnail`;
+            document.getElementById("active-img").classList.remove("hidden");
+            document.getElementById("active-img-placeholder").classList.add("hidden");
+
+            document.getElementById("active-cat-badge").textContent = img.section_name || "Classified";
+            document.getElementById("active-tier-badge").textContent = img.classifier || "ML Model";
+            document.getElementById("active-conf-badge").textContent = `Conf: ${(img.confidence * 100).toFixed(0)}%`;
+            document.getElementById("active-filename").textContent = img.filename;
+            document.getElementById("active-caption").textContent = img.caption ? `Caption: "${img.caption}"` : "(No group caption)";
+          }
+
+          if (proc >= total && total > 0) {
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              pollInterval = null;
+            }
+            setTimeout(loadCanvas, 700);
+          }
+        }
+      } catch (e) {
+        console.error("Poll error:", e);
+      }
+    }
+
+    async function loadCanvas() {
+      if (!currentBatchId) return;
+
+      showPanel("canvas");
+      const resp = await fetch(`/api/batch/${currentBatchId}`);
+      if (!resp.ok) {
+        showPanel("upload");
+        return;
+      }
+      batchData = await resp.json();
+
+      document.getElementById("batch-summary-badge").textContent = `${batchData.images.length} Images in Batch`;
+      renderSections();
+    }
+
+    function renderSections() {
+      const container = document.getElementById("sections-container");
+      container.innerHTML = "";
+
+      const sections = {};
+      for (let s = 1; s <= 11; s++) sections[s] = [];
+
+      batchData.images.forEach(img => {
+        const s = img.section_id || 11;
+        sections[s].push(img);
+      });
+
+      for (let s = 1; s <= 11; s++) {
+        const imgs = sections[s];
+        const secDiv = document.createElement("div");
+        secDiv.className = "bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4";
+
+        secDiv.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-3">
+              <span class="w-7 h-7 rounded-lg ${imgs.length > 0 ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500'} font-bold flex items-center justify-center text-xs">
+                ${s}
+              </span>
+              <h4 class="font-bold text-white text-sm">${SECTION_NAMES[s]}</h4>
+              <span class="text-xs ${imgs.length > 0 ? 'text-blue-400 font-semibold' : 'text-slate-500'} font-mono">
+                (${imgs.length} images)
+              </span>
+            </div>
+            <div class="text-xs text-slate-400">
+              ${s === 1 ? '<span class="text-emerald-400 font-medium"><i class="fa-solid fa-font mr-1"></i> Editable Cell Text in C14:G14 (Zero EMF)</span>' : ''}
+              ${s === 5 ? '<span class="text-indigo-400 font-medium">Individual Captions under each glove pair</span>' : ''}
+              ${s === 6 ? '<span class="text-amber-400 font-medium">Single Reference Glove</span>' : ''}
+              ${s === 11 ? '<span class="text-slate-400 italic">Moisture Meter &bull; QC Release Stickers</span>' : ''}
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="section-grid-${s}">
+          </div>
+        `;
+
+        const grid = secDiv.querySelector(`#section-grid-${s}`);
+
+        if (imgs.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full border border-dashed border-slate-800 rounded-lg p-6 text-center text-slate-500 text-xs">
+              <p>No images currently assigned to this section.</p>
+              <p class="text-[11px] text-slate-600 mt-1">You can move any image here using the Section dropdown on its card.</p>
+            </div>
+          `;
+        } else {
+          imgs.forEach(img => {
+            const card = document.createElement("div");
+            card.className = `bg-slate-950 border ${img.is_excluded ? 'border-rose-900/40 opacity-50' : 'border-slate-800'} rounded-xl p-3 space-y-2.5 transition hover:border-slate-700`;
+            
+            card.innerHTML = `
+              <div class="relative aspect-[4/3] bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center border border-slate-800">
+                <img src="/api/image/${img.id}/thumbnail" alt="${img.filename}" class="w-full h-full object-contain">
+                ${img.is_excluded ? '<span class="absolute top-2 right-2 bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">EXCLUDED</span>' : ''}
+                <span class="absolute bottom-1.5 left-2 bg-slate-900/80 backdrop-blur text-[10px] text-slate-300 font-mono px-1.5 py-0.5 rounded">
+                  ${img.filename}
+                </span>
+              </div>
+
+              <!-- Label and Category Details -->
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-semibold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                    Section ${img.section_id}
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">
+                    ${img.confidence_score ? (img.confidence_score * 100).toFixed(0) + '% conf' : '100%'}
+                  </span>
+                </div>
+
+                <!-- Section Selector -->
+                <div>
+                  <label class="text-[10px] uppercase text-slate-500 font-bold block mb-0.5">Assigned Section</label>
+                  <select onchange="updateImageSection('${img.id}', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500">
+                    ${[1,2,3,4,5,6,7,8,9,10,11].map(sec => `
+                      <option value="${sec}" ${img.section_id === sec ? 'selected' : ''}>${SECTION_NAMES[sec]}</option>
+                    `).join('')}
+                  </select>
+                </div>
+
+                <!-- Excel Caption Input -->
+                <div>
+                  <label class="text-[10px] uppercase text-slate-500 font-bold block mb-0.5">Excel Cell Caption</label>
+                  <input type="text" value="${img.caption_text || ''}" onchange="updateImageCaption('${img.id}', this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs px-2 py-1 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500" placeholder="e.g. Product View (# 2741 - 481 - L /11)">
+                </div>
+
+                <!-- Action Toolbar -->
+                <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                  <button onclick="toggleExclude('${img.id}', ${!img.is_excluded})" class="text-xs ${img.is_excluded ? 'text-emerald-400 hover:text-emerald-300' : 'text-rose-400 hover:text-rose-300'} font-medium flex items-center space-x-1">
+                    <i class="fa-solid ${img.is_excluded ? 'fa-plus' : 'fa-ban'}"></i>
+                    <span>${img.is_excluded ? 'Include' : 'Exclude'}</span>
+                  </button>
+                  <span class="text-[10px] text-slate-500 truncate max-w-[130px]" title="${img.classifier_used}">
+                    ${img.classifier_used || 'ML Model'}
+                  </span>
+                </div>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+        }
+
+        container.appendChild(secDiv);
+      }
+    }
+
+    async function updateImageSection(imageId, newSection) {
+      await fetch(`/api/image/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section_id: parseInt(newSection) })
+      });
+      loadCanvas();
+    }
+
+    async function updateImageCaption(imageId, newCaption) {
+      await fetch(`/api/image/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption_text: newCaption })
+      });
+    }
+
+    async function toggleExclude(imageId, isExcluded) {
+      await fetch(`/api/image/${imageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_excluded: isExcluded })
+      });
+      loadCanvas();
+    }
+
+    function reclassifyBatch() {
+      if (!currentBatchId) return;
+      if (confirm("Re-run classification on all images in this batch?")) {
+        startClassification();
+      }
+    }
+
+    function exportExcel() {
+      if (!currentBatchId) return;
+      updateStepNav(4);
+      window.location.href = `/api/batch/${currentBatchId}/export`;
+    }
+
+    // Initialize on page load: always open in a fresh new page
+    window.addEventListener("DOMContentLoaded", () => {
+      showPanel("upload");
+      loadRecentBatches();
+    });
+  </script>
+</body>
+</html>

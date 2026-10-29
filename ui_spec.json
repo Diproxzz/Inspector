@@ -1,0 +1,53 @@
+{
+  "ux_steps": [
+    {
+      "step": 1,
+      "name": "Upload & Visually Lossless Compress",
+      "components": [
+        "DragDropZone (accepts multi-file or .zip, client validates count <= 300)",
+        "BatchSummaryCard (image count, total MB raw vs estimated 220-PPI compressed)",
+        "CompressionProgressIndicator (Lanczos, EXIF upright, unsharp mask, 4:4:4 subsampling)"
+      ]
+    },
+    {
+      "step": 2,
+      "name": "Sequential Classification Pipeline",
+      "components": [
+        "LiveStreamingProgress (Server-Sent Events / WebSocket, current image index / total)",
+        "ActiveImageCard (thumbnail, detected category, extracted article/size, confidence score, tier badge: Qwen-3.8 / Fallback)",
+        "PacingController (inter-request token limiter visualization, failover indicator)"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "Interactive A4 Layout Review & Edit Canvas",
+      "components": [
+        "A4PageLayoutVisualizer (renders exact 48-row page breaks, 9-column grid, margin guides)",
+        "DragAndDropSectionOrganizer (@dnd-kit/core reordering between Section 1 to 11)",
+        "InlineCaptionEditor (auto-populates # XXXX-XXX-X/X, editable by user)",
+        "ExclusionToggle (1-click include/exclude for 11C Inspector Notes / duplicates)",
+        "RotationTool (90° manual override if needed)"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "Export & Verification",
+      "components": [
+        "ExportButton (generates exact .xlsx with OpenPyXL TwoCellAnchors, editable cells, zero EMF)",
+        "AuditModal (confirms SSIM >= 0.97, 220 PPI print standard, 100% editable cell captions)"
+      ]
+    }
+  ],
+  "theme": {
+    "primary": "#2563eb",
+    "primary_dark": "#1d4ed8",
+    "background": "#0f172a",
+    "surface": "#1e293b",
+    "border": "#334155",
+    "text_primary": "#f8fafc",
+    "text_secondary": "#94a3b8",
+    "accent_amber": "#f59e0b",
+    "accent_green": "#10b981",
+    "accent_red": "#ef4444"
+  }
+}

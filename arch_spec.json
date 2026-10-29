@@ -1,0 +1,50 @@
+{
+  "system_architecture": {
+    "backend": "FastAPI (Python 3.11+)",
+    "database": {
+      "engine": "PostgreSQL 16",
+      "driver": "asyncpg",
+      "connection": "postgresql+asyncpg://postgres:postgres@localhost:5432/inspector_qc"
+    },
+    "compression_engine": {
+      "exif_transpose": true,
+      "max_dimension": 1600,
+      "max_dimension_text_heavy": 2000,
+      "resampling": "Image.Resampling.LANCZOS",
+      "unsharp_mask": {"radius": 0.8, "percent": 60, "threshold": 3},
+      "chroma_subsampling": 0,
+      "jpeg_quality": 88,
+      "dpi": [220, 220]
+    },
+    "llm_classification_pipeline": {
+      "model": "qwen/qwen3.8-27b",
+      "groq_api_keys": [
+        "YOUR_GROQ_API_KEY_1",
+        "YOUR_GROQ_API_KEY_2"
+      ],
+      "concurrency": 1,
+      "token_pacing_ms": 300,
+      "temperature": 0.0,
+      "max_tokens": 100,
+      "batch_context_propagation": true,
+      "fallback_chain": [
+        "Tier 1: Qwen-3.8 with round-robin key rotation and exponential backoff",
+        "Tier 2: Secondary VLM or heuristic fallback",
+        "Tier 3: Local OpenCV/OCR contour and color heuristics",
+        "Tier 4: Manual review flag (confidence < 0.65)"
+      ]
+    },
+    "xlsx_builder": {
+      "library": "openpyxl",
+      "page_budget_rows": 48,
+      "margin_in": {"left": 0.7, "right": 0.7, "top": 0.75, "bottom": 0.75, "header": 0.3, "footer": 0.3},
+      "column_count": 9,
+      "column_width": 8.43,
+      "default_row_height": 14.4,
+      "caption_font": {"name": "Calibri", "size": 11, "bold": false, "color": "000000"},
+      "caption_alignment": {"horizontal": "center", "vertical": "center", "wrap_text": false},
+      "two_cell_anchor_scaling": true,
+      "zero_emf_guarantee": true
+    }
+  }
+}

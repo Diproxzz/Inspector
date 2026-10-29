@@ -1,0 +1,147 @@
+{
+  "project": "Automated QC Image-to-Excel A4 Inspection Report Builder",
+  "version": "1.0.0",
+  "batch_constraints": {
+    "max_images": 300,
+    "hard_limit_action": "HTTP 422 Unprocessable Entity with client deselect modal",
+    "supported_formats": [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".zip"],
+    "ordering_preservation": "EXIF DateTimeOriginal -> filename timestamp fallback"
+  },
+  "sections": [
+    {
+      "id": 1,
+      "code": "CAT_01",
+      "name": "Shipping Marks View",
+      "description": "Close-up of white paper shipping label on carton showing Artikel-Nr., Name, Menge, Karton-Nr., Gewicht, PN, barcode",
+      "caption_type": "group_bottom",
+      "caption_template": "Shipping Marks View",
+      "caption_merged_cells": "C14:G14",
+      "caption_is_text": true,
+      "layout": "2_column_side_by_side",
+      "excel_columns": ["A:E", "E:I"],
+      "cell_height_rows": 12
+    },
+    {
+      "id": 2,
+      "code": "CAT_02",
+      "name": "Export Carton View",
+      "description": "Full exterior views of closed corrugated cardboard cartons strapped with white bands and branded tape",
+      "caption_type": "group_bottom",
+      "caption_template": "Export Carton View",
+      "layout": "pairs_with_centered_odd",
+      "excel_columns": ["A:E", "E:I", "C:G"],
+      "cell_height_rows": 8
+    },
+    {
+      "id": 3,
+      "code": "CAT_03",
+      "name": "Open carton View",
+      "description": "Top-down photo of opened cardboard carton showing stacked transparent polybagged glove bundles and leaflet inside",
+      "caption_type": "group_bottom",
+      "caption_template": "Open carton View",
+      "layout": "centered_single_or_pair",
+      "excel_columns": ["C:G"],
+      "cell_height_rows": 10
+    },
+    {
+      "id": 4,
+      "code": "CAT_04",
+      "name": "Bundle View",
+      "description": "Gloves wrapped inside transparent polybag with product/barcode sticker and folded leaflet visible",
+      "caption_type": "group_bottom",
+      "caption_template": "Bundle View",
+      "layout": "2_column_portrait_pair",
+      "excel_columns": ["B:E", "E:H"],
+      "cell_height_rows": 15
+    },
+    {
+      "id": 5,
+      "code": "CAT_05",
+      "name": "Product View (# XXXX - XXX - X/X)",
+      "description": "Two unpacked gloves laid side-by-side (palm view + back/cuff view with stamp)",
+      "caption_type": "individual_under_each",
+      "caption_template": "Product View (# {article} - {size_variant})",
+      "layout": "2_column_separated",
+      "excel_columns": ["A:D", "F:I"],
+      "cell_height_rows": 11
+    },
+    {
+      "id": 6,
+      "code": "CAT_06",
+      "name": "Reference Sample View (# XXXX - XXX)",
+      "description": "Single unpacked glove laid flat on table with handwritten or sample reference marking",
+      "caption_type": "individual_under_each",
+      "caption_template": "Reference Sample View (# {article} )",
+      "layout": "centered_portrait_single",
+      "excel_columns": ["C:G"],
+      "cell_height_rows": 17
+    },
+    {
+      "id": 7,
+      "code": "CAT_07",
+      "name": "Gloves Marking View",
+      "description": "Macro close-up of ink/heat stamp directly on glove cuff (W+R, SEIZ, article, size, CE norms)",
+      "caption_type": "group_bottom",
+      "caption_template": "Gloves Marking View",
+      "layout": "2_column_side_by_side",
+      "excel_columns": ["A:E", "E:I"],
+      "cell_height_rows": 12
+    },
+    {
+      "id": 8,
+      "code": "CAT_08",
+      "name": "Barcode",
+      "description": "Macro close-up of white adhesive barcode sticker (model, size, EAN-13, production date)",
+      "caption_type": "group_bottom",
+      "caption_template": "Barcode",
+      "layout": "2_column_landscape",
+      "excel_columns": ["A:E", "E:I"],
+      "cell_height_rows": 9
+    },
+    {
+      "id": 9,
+      "code": "CAT_09",
+      "name": "Leaflet (Front & Back View)",
+      "description": "Full unfolded multi-language paper user instruction leaflet (portrait upright)",
+      "caption_type": "group_bottom",
+      "caption_template": "Leaflet (Front & Back View)",
+      "layout": "centered_tall_single",
+      "excel_columns": ["C:G"],
+      "cell_height_rows": 18
+    },
+    {
+      "id": 10,
+      "code": "CAT_10",
+      "name": "Inside Label Front and Back View",
+      "description": "Macro close-up of sewn-in white woven fabric care/CE label",
+      "caption_type": "group_bottom",
+      "caption_template": "Inside Label Front and Back View",
+      "layout": "grid_2x2",
+      "excel_columns": ["A:E", "E:I"],
+      "cell_height_rows": 14
+    },
+    {
+      "id": 11,
+      "code": "CAT_11",
+      "name": "Rest of the Images",
+      "description": "Moisture Check (pairs & singles), QC Release Sticker, and Excluded Notes",
+      "caption_type": "sub_grouped_or_none",
+      "sub_categories": {
+        "11A": "Moisture Check",
+        "11B": "QC Release Sticker",
+        "11C": "Excluded / Inspector Notes"
+      },
+      "layout": "mixed_pairs_and_centered",
+      "excel_columns": ["A:E", "E:I", "C:G"],
+      "cell_height_rows": 14
+    }
+  ],
+  "a4_pagination": {
+    "page_height_rows": 48,
+    "printable_cols": 9,
+    "col_names": ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
+    "col_width": 8.43,
+    "row_height_pt": 14.4,
+    "mandatory_bottom_caption_rule": "Every image block ending a page must have its classification caption rendered before page break"
+  }
+}

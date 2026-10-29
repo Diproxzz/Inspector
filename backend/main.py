@@ -4,7 +4,7 @@ import uuid
 import zipfile
 import asyncio
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, status
 from fastapi.responses import StreamingResponse, Response, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,9 +30,42 @@ app.add_middleware(
 # In-memory progress tracking for SSE
 batch_progress_events = {}
 
+async def purge_expired_batches(max_age_hours: float = 1.0) -> int:
+    """Permanently deletes batches older than max_age_hours to prevent database cost accumulation."""
+    cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+    try:
+        async with AsyncSessionLocal() as session:
+            q = select(InspectionBatch).where(InspectionBatch.created_at < cutoff)
+            res = await session.execute(q)
+            expired = res.scalars().all()
+            count = len(expired)
+            if count > 0:
+                for b in expired:
+                    if str(b.id) in batch_progress_events:
+                        del batch_progress_events[str(b.id)]
+                    await session.delete(b)
+                await session.commit()
+            return count
+    except Exception as e:
+        print(f"Error purging expired batches: {e}")
+        return 0
+
+async def auto_purge_loop():
+    """Continuous background worker cleaning up batches older than 1 hour every 5 minutes."""
+    while True:
+        try:
+            await asyncio.sleep(300)
+            await purge_expired_batches(1.0)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Auto purge loop error: {e}")
+
 @app.on_event("startup")
 async def on_startup():
     await init_db()
+    await purge_expired_batches(1.0)
+    asyncio.create_task(auto_purge_loop())
 
 @app.get("/api/health")
 async def health_check():
@@ -50,7 +83,8 @@ async def shutdown_server():
 
 @app.get("/api/batches")
 async def list_batches():
-    """Returns list of recent inspection batches."""
+    """Returns list of recent inspection batches, auto-purging anything older than 1 hour."""
+    await purge_expired_batches(1.0)
     async with AsyncSessionLocal() as session:
         q = select(InspectionBatch).order_by(InspectionBatch.created_at.desc()).limit(20)
         res = (await session.execute(q)).scalars().all()

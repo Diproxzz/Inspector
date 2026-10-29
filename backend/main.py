@@ -34,10 +34,16 @@ app.add_middleware(
 batch_progress_events = {}
 
 async def vacuum_database():
-    """Reclaims physical disk space back to the OS volume using VACUUM FULL and CHECKPOINT."""
+    """Reclaims physical disk space back to the OS volume using VACUUM FULL, WAL tuning, and CHECKPOINT."""
     try:
         async with engine.connect() as conn:
             await conn.execution_options(isolation_level="AUTOCOMMIT")
+            try:
+                await conn.execute(text("ALTER SYSTEM SET max_wal_size = '64MB';"))
+                await conn.execute(text("ALTER SYSTEM SET min_wal_size = '32MB';"))
+                await conn.execute(text("SELECT pg_reload_conf();"))
+            except Exception as e:
+                logger.warning(f"Could not alter system wal settings: {e}")
             await conn.execute(text("CHECKPOINT;"))
             await conn.execute(text("VACUUM FULL inspection_images;"))
             await conn.execute(text("VACUUM FULL inspection_batches;"))

@@ -153,22 +153,47 @@ def generate_qc_inspection_workbook(images_records: List[Dict[str, Any]], batch_
                 current_page_rows += 2
 
         elif s_id == 6:
-            # Reference Sample View: Individual caption under single product
+            # Reference Sample View: 2 images per row whenever 2 or more exist, like the other classifications
             idx = 0
-            while idx < len(imgs):
-                ensure_page_capacity(img_rows + 4)
-                img1 = imgs[idx]
-                b1 = create_formatted_excel_image(img1["excel_blob"], target_size=target_sz)
-                add_two_cell_image(ws, b1, f_col=2, f_row=current_row - 1, t_col=6, t_row=current_row + img_rows - 1,
-                                   f_colOff=20000, f_rowOff=20000, t_colOff=0, t_rowOff=0)
-                idx += 1
-                current_row += img_rows
-                current_page_rows += img_rows
+            total_sec_imgs = len(imgs)
+            while idx < total_sec_imgs:
+                remaining = total_sec_imgs - idx
+                if remaining >= 2:
+                    ensure_page_capacity(img_rows + 4)
+                    img1 = imgs[idx]
+                    img2 = imgs[idx + 1]
+                    b1 = create_formatted_excel_image(img1["excel_blob"], target_size=target_sz)
+                    b2 = create_formatted_excel_image(img2["excel_blob"], target_size=target_sz)
+                    add_two_cell_image(ws, b1, f_col=0, f_row=current_row - 1, t_col=4, t_row=current_row + img_rows - 1,
+                                       f_colOff=20000, f_rowOff=20000, t_colOff=0, t_rowOff=0)
+                    add_two_cell_image(ws, b2, f_col=4, f_row=current_row - 1, t_col=8, t_row=current_row + img_rows - 1,
+                                       f_colOff=20000, f_rowOff=20000, t_colOff=0, t_rowOff=0)
+                    cap1 = img1.get("caption_text") or f"Reference Sample View (# {batch_reference_code} )"
+                    cap2 = img2.get("caption_text") or f"Reference Sample View (# {batch_reference_code} )"
+                    idx += 2
+                    current_row += img_rows
+                    current_page_rows += img_rows
 
-                cap = img1.get("caption_text") or f"Reference Sample View (# {batch_reference_code} )"
-                apply_caption_style(ws, f"C{current_row}:G{current_row}", cap)
-                current_row += 2
-                current_page_rows += 2
+                    # Individual captions under products
+                    apply_caption_style(ws, f"A{current_row}:D{current_row}", cap1)
+                    apply_caption_style(ws, f"F{current_row}:I{current_row}", cap2)
+                    current_row += 2
+                    current_page_rows += 2
+                else:
+                    # Single odd image: center in columns C..G
+                    ensure_page_capacity(img_rows + 4)
+                    img1 = imgs[idx]
+                    b1 = create_formatted_excel_image(img1["excel_blob"], target_size=target_sz)
+                    add_two_cell_image(ws, b1, f_col=2, f_row=current_row - 1, t_col=6, t_row=current_row + img_rows - 1,
+                                       f_colOff=20000, f_rowOff=20000, t_colOff=0, t_rowOff=0)
+                    idx += 1
+                    current_row += img_rows
+                    current_page_rows += img_rows
+
+                    cap = img1.get("caption_text") or f"Reference Sample View (# {batch_reference_code} )"
+                    apply_caption_style(ws, f"C{current_row}:G{current_row}", cap)
+                    current_row += 2
+                    current_page_rows += 2
 
         else:
             # ALL OTHER SECTIONS:

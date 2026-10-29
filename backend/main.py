@@ -420,6 +420,21 @@ async def export_batch_excel(batch_id: uuid.UUID):
             headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
         )
 
+@app.delete("/api/batch/{batch_id}")
+async def delete_batch(batch_id: uuid.UUID):
+    """Permanently deletes an inspection batch and trashes all its images from the database."""
+    async with AsyncSessionLocal() as session:
+        batch = await session.get(InspectionBatch, batch_id)
+        if not batch:
+            raise HTTPException(status_code=404, detail="Batch not found")
+        await session.delete(batch)
+        await session.commit()
+
+    if str(batch_id) in batch_progress_events:
+        del batch_progress_events[str(batch_id)]
+
+    return {"status": "deleted", "message": f"Batch {batch_id} and all associated images have been permanently trashed."}
+
 # Serve Frontend static directory if exists
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 if os.path.exists(frontend_dir):

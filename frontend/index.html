@@ -161,6 +161,10 @@
           <button onclick="reclassifyBatch()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition">
             <i class="fa-solid fa-arrows-rotate mr-1.5"></i> Re-classify Batch
           </button>
+          <button onclick="trashCurrentBatch()" class="px-3.5 py-2 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-xs font-semibold text-rose-300 transition flex items-center space-x-1.5" title="Permanently delete and trash this batch and all its images from the database">
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Trash Batch</span>
+          </button>
           <button onclick="exportExcel()" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition flex items-center space-x-2">
             <i class="fa-solid fa-file-excel text-base"></i>
             <span>Download Editable A4 XLSX</span>
@@ -589,6 +593,22 @@
       if (!currentBatchId) return;
       if (confirm("Re-run classification on all images in this batch?")) {
         startClassification();
+      }
+    }
+
+    async function trashCurrentBatch() {
+      if (!currentBatchId) return;
+      if (!confirm("Are you sure you want to permanently delete and trash this batch and all its images from the database? This frees up 100% of the storage.")) {
+        return;
+      }
+      try {
+        const resp = await fetch(`/api/batch/${currentBatchId}`, { method: "DELETE" });
+        if (!resp.ok) throw new Error("Failed to delete batch");
+        alert("Batch and all stored images have been permanently trashed.");
+        createNewBatch();
+        await loadRecentBatches();
+      } catch (e) {
+        alert("Error trashing batch: " + e.message);
       }
     }
 
